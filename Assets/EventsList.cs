@@ -14,7 +14,7 @@ public class EventsList : MonoBehaviour
     private int countEvents;
     private void Start()
     {
-        ServerContector.SendRequist(TypeRequist.Post,null,out AnswerServer answerServer);
+        /*ServerContector.SendRequist(TypeRequist.Post,null,out AnswerServer answerServer);
         answerServer.Accept.AddListener((resault) =>
         {
             countEvents = Convert.ToInt32(resault);
@@ -22,7 +22,7 @@ public class EventsList : MonoBehaviour
             {
                 CreateEventItem();
             }
-        });
+        });*/
     }
 
     private void CreateEventItem()

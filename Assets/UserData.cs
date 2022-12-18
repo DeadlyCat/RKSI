@@ -1,4 +1,6 @@
 ﻿using System;
+using Newtonsoft.Json;
+using UnityEngine;
 
 public enum UserType
 {
@@ -9,36 +11,33 @@ public enum UserType
 [Serializable]
 public struct UserData
 {
-    public int userId;
-    
-    public UserType userType;
-    
-    public string name;
-    public string surName;
-    public string patronymic;
+    public string id;
+    public string status;
+
+    public string fio;
 
     public string post;
     public string organization;
     public string mail;
+    [JsonProperty("is_need_sert_by_default")]
     public bool getCertificate;
+    public Event[] events;
 
-    public UserData(int userId,UserType userType,string name,string surname,string patronymic,string post,string organization, string mail,bool getCertificate )
+    public UserData(string id,string userType,string fio,string post,string organization, string mail,bool getCertificate,Event[] events = null )
     {
-        this.userId = userId;
-        this.userType = userType;
-        this.name = name;
-        this.surName = surname;
-        this.patronymic = patronymic;
-
+        this.id = id;
+        this.status = userType;
+        this.fio = fio;
         this.post = post;
         this.organization = organization;
         this.mail = mail;
         this.getCertificate = getCertificate;
+        this.events = events;
     }
 }
 public static class User
 {
-    public static string jwtToken = "";
+    public static string JwtToken { private set; get; }
     private static UserData _data;
     public static UserData GetData()
     {
@@ -49,4 +48,15 @@ public static class User
     {
         _data = data;
     }
+
+    public static void SetJwtToken(string jwt)
+    {
+        JwtToken = jwt;
+        PlayerPrefs.SetString("token",JwtToken);
+    }
+}
+[Serializable]
+public class Event
+{
+    public string name;
 }

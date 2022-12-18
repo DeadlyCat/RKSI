@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System;
 using System.Text;
+using UnityEngine.Events;
 
 public enum TypeRequist
 {
@@ -13,19 +14,40 @@ public enum TypeRequist
 
 public class ServerContector : MonoBehaviour
 {
-    private string _url = "http://testserver";
+    private string _url = "https://d9f3-46-147-98-93.eu.ngrok.io/";
 
     private string _standartHeader =
         "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36";
     
     private static ServerContector instance;
-    
+
+    public static UnityEvent<UnityWebRequest> GotData = new UnityEvent<UnityWebRequest>();
     private void Awake()
     {
         instance = this;
     }
 
-    public static void SendRequist<T>(TypeRequist typeRequist, Dictionary<string,T> dicUpload,out AnswerServer answer)
+    public static IEnumerator GetRequest(string route, Action<string> callback)
+    {
+        UnityWebRequest uwr = UnityWebRequest.Get(instance._url + route);
+        uwr.SetRequestHeader("Token", User.JwtToken);
+        yield return uwr.SendWebRequest();
+
+        if (uwr.isNetworkError)
+        {
+            Debug.Log("Error While Sending: " + uwr.error);
+        }
+        else
+        {
+            Debug.Log("Received: " + uwr.downloadHandler.text);
+        }
+        Debug.Log("second request");
+        callback(uwr.downloadHandler.text);
+
+    }
+
+
+    public static UnityWebRequest SendRequist<T>(TypeRequist typeRequist, string rouite, Dictionary<string,T> dicUpload,out AnswerServer answer)
     {
         UnityWebRequest webRequest = null;
         DownloadHandler downloadHandler = new DownloadHandlerBuffer();
@@ -46,52 +68,46 @@ public class ServerContector : MonoBehaviour
                 }
                 uploadHandler = new UploadHandlerRaw(data);
                 uploadHandler.contentType = "multipart/form-data; boundary=" + Encoding.UTF8.GetString(boundary, 0, boundary.Length);
-                webRequest = new UnityWebRequest(instance._url, "POST", downloadHandler, uploadHandler);
-                webRequest.SetRequestHeader("token", User.jwtToken);
+                webRequest = new UnityWebRequest(instance._url + rouite, "POST", downloadHandler, uploadHandler);
+                webRequest.SetRequestHeader("token", User.JwtToken);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(typeRequist), typeRequist, null);
         }
         
         answer = answerServer;
-        instance.StartCoroutine(instance.Send(webRequest,answerServer));
+        instance.StartCoroutine(instance.Send(webRequest,answer));
+        return webRequest;
     }
-    public static void SendRequist(TypeRequist typeRequist, Dictionary<string,string> dicUpload,out AnswerServer answer)
+    public static UnityWebRequest SendRequist(TypeRequist typeRequist, string rouite,Dictionary<string,string> dicUpload,out AnswerServer answer)
     {
         UnityWebRequest webRequest = null;
-        DownloadHandler downloadHandler = new DownloadHandlerBuffer();
-        UploadHandler uploadHandler;
         AnswerServer answerServer = new AnswerServer();
         switch (typeRequist)
         {
             case TypeRequist.Get:
-                var uploadData =  DataPreporator.PreparateDataForGet(dicUpload);
+                string uploadData = "";
+                if (dicUpload != null)
+                {
+                    uploadData = DataPreporator.PreparateDataForGet(dicUpload);
+                }
                 
-                webRequest = new UnityWebRequest(instance._url+uploadData, "GET");
-                webRequest.SetRequestHeader("token", User.jwtToken);
+                webRequest = UnityWebRequest.Get(instance._url + rouite+uploadData);
+                webRequest = new UnityWebRequest(instance._url + rouite +uploadData, "GET");
+                webRequest.SetRequestHeader("token", User.JwtToken);
                 break;
             case TypeRequist.Post:
                 var postData = DataPreporator.PreparateDataForPost(dicUpload);
-                byte[] data = new byte[]{};
-                byte[] boundary = UnityWebRequest.GenerateBoundary();
-                if (postData != null && (uint) postData.Count > 0U)
-                {
-                    data  = UnityWebRequest.SerializeFormSections(postData,boundary );
-                }
-                else
-                {
-                    data = Encoding.UTF8.GetBytes("empy");
-                }
-                uploadHandler = new UploadHandlerRaw(data);
-                uploadHandler.contentType = "multipart/form-data; boundary=" + Encoding.UTF8.GetString(boundary, 0, boundary.Length);
-                webRequest = new UnityWebRequest(instance._url, "POST", downloadHandler, uploadHandler);
-                webRequest.SetRequestHeader("token", User.jwtToken);
+                webRequest = UnityWebRequest.Post(instance._url + rouite,postData);
+                webRequest.SetRequestHeader("token", User.JwtToken);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(typeRequist), typeRequist, null);
         }
+
         answer = answerServer;
-        instance.StartCoroutine(instance.Send(webRequest,answerServer));
+        instance.StartCoroutine(instance.Send(webRequest,answer));
+        return webRequest;
     }
     private IEnumerator Send(UnityWebRequest request,AnswerServer answerServer)
     {
@@ -100,7 +116,10 @@ public class ServerContector : MonoBehaviour
         if (!request.isNetworkError || !request.isHttpError)
         {
             Debug.Log(request.url);
-            answerServer.SetAnswer(request.downloadHandler.text);
+            GotData?.Invoke(request);
+            answerServer.SetAnswer(DownloadHandlerBuffer.GetContent(request));
+            
+            
         }
         else
         {

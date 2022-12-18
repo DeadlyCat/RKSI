@@ -8,8 +8,7 @@ public class  AnswerServer
     {
         _answer = answer;
         Accept?.Invoke(_answer);
-        Accept.RemoveAllListeners();
-       
+
     }
     public string GetAnswer()
     {
